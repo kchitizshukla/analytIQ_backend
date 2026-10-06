@@ -38,6 +38,22 @@ class Settings(BaseSettings):
         description="SQLAlchemy URL. Password supplied via env, never committed.",
     )
 
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _normalize_db_scheme(cls, v: str) -> str:
+        """Force the psycopg 3 dialect.
+
+        This app installs psycopg 3 (not psycopg2). Managed providers (Neon,
+        Render, Heroku, Supabase) hand out `postgresql://` / `postgres://`
+        URLs, which SQLAlchemy maps to the *psycopg2* dialect and then fails
+        with `No module named 'psycopg2'`. Rewriting the scheme here means a
+        pasted provider URL works unchanged.
+        """
+        for prefix in ("postgresql+psycopg2://", "postgresql://", "postgres://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix):]
+        return v
+
     # --- CORS / frontend ---
     frontend_url: str = "http://localhost:3000"
 
